@@ -12,10 +12,10 @@ static int gm_ascm_fwd_hook(int bus_num, CAN_FIFOMailBox_TypeDef *to_fwd) {
 
   if (bus_num == 2) {
     // Drop all steering + brake messages
-    //if ((addr == 241) || (addr == 384)  || (addr == 417) || (addr == 715)) {
+    if ((addr == 384) || (addr == 715)  || (addr == 789) || (addr == 880)) {
 
     // Drop all steering messages
-    if ((addr == 384)) {
+    //if ((addr == 384)) {
         return -1;
     }
 
