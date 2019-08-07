@@ -127,10 +127,8 @@ typedef struct {
 extern int can_live, pending_can_live;
 
 // must reinit after changing these
-extern int can_loopback, can_silent;
+extern int can_silent;
 extern uint32_t can_speed[];
-
-void can_set_forwarding(int from, int to);
 
 void can_init(uint8_t can_number);
 void can_init_all();

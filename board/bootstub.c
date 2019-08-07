@@ -20,7 +20,6 @@
 #include "drivers/llgpio.h"
 #include "gpio.h"
 
-#include "drivers/spi.h"
 #include "drivers/usb.h"
 //#include "drivers/uart.h"
 
@@ -37,8 +36,6 @@ void puth(unsigned int i) {}
 #include "crypto/sha.h"
 
 #include "obj/cert.h"
-
-#include "spi_flasher.h"
 
 void __initialize_hardware_early() {
   early();

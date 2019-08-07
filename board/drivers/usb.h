@@ -798,11 +798,11 @@ void usb_irqhandler(void) {
       #endif
 
       if (endpoint == 2) {
-        usb_cb_ep2_out(usbdata, len, 1);
+        //usb_cb_ep2_out(usbdata, len, 1);
       }
 
       if (endpoint == 3) {
-        usb_cb_ep3_out(usbdata, len, 1);
+        //usb_cb_ep3_out(usbdata, len, 1);
       }
     } else if (((rxst & USB_OTG_GRXSTSP_PKTSTS) >> 17) == STS_SETUP_UPDT) {
       USB_ReadPacket(&setup, 8);
@@ -929,25 +929,25 @@ void usb_irqhandler(void) {
       case 0: ////// Bulk config
         // *** IN token received when TxFIFO is empty
         if (USBx_INEP(1)->DIEPINT & USB_OTG_DIEPMSK_ITTXFEMSK) {
-          #ifdef DEBUG_USB
+          //#ifdef DEBUG_USB
           puts("  IN PACKET QUEUE\n");
-          #endif
+          //#endif
           // TODO: always assuming max len, can we get the length?
-          USB_WritePacket((void *)resp, usb_cb_ep1_in(resp, 0x40, 1), 1);
+          //USB_WritePacket((void *)resp, usb_cb_ep1_in(resp, 0x40, 1), 1);
         }
         break;
 
       case 1: ////// Interrupt config
         // *** IN token received when TxFIFO is empty
         if (USBx_INEP(1)->DIEPINT & USB_OTG_DIEPMSK_ITTXFEMSK) {
-          #ifdef DEBUG_USB
+          //#ifdef DEBUG_USB
           puts("  IN PACKET QUEUE\n");
-          #endif
+          //#endif
           // TODO: always assuming max len, can we get the length?
-          int len = usb_cb_ep1_in(resp, 0x40, 1);
-          if (len > 0) {
-            USB_WritePacket((void *)resp, len, 1);
-          }
+          //int len = usb_cb_ep1_in(resp, 0x40, 1);
+          //if (len > 0) {
+          //  USB_WritePacket((void *)resp, len, 1);
+          //}
         }
         break;
     }
