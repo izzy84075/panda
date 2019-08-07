@@ -2,23 +2,6 @@
 
 #define CAN_MAX 3
 
-#define CAN_IT_TX_MAILBOX_EMPTY     ((uint32_t)CAN_IER_TMEIE)
-
-// ********************* instantiate queues *********************
-
-#define can_buffer(x, size) \
-  CAN_FIFOMailBox_TypeDef elems_##x[size]; \
-  can_ring can_##x = { .w_ptr = 0, .r_ptr = 0, .fifo_size = size, .elems = (CAN_FIFOMailBox_TypeDef *)&elems_##x };
-
-//can_buffer(rx_q, 0x1000)
-can_buffer(tx1_q, 0x100)
-can_buffer(tx2_q, 0x100)
-can_buffer(tx3_q, 0x100)
-can_buffer(txgmlan_q, 0x100)
-can_ring *can_queues[] = {&can_tx1_q, &can_tx2_q, &can_tx3_q, &can_txgmlan_q};
-
-// ********************* interrupt safe queue *********************
-
 int can_err_cnt = 0;
 int can_all_mailbox_full_cnt = 0;
 int can0_rx_cnt = 0;
@@ -69,8 +52,6 @@ uint32_t can_speed[] = {5000, 5000, 5000, 333};
 // 333 = 33.3 kbps
 // 5000 = 500 kbps
 #define can_speed_to_prescaler(x) (CAN_PCLK / CAN_QUANTA * 10 / (x))
-
-//void process_can(uint8_t can_number);
 
 void can_set_speed(uint8_t can_number) {
   CAN_TypeDef *CAN = CANIF_FROM_CAN_NUM(can_number);
@@ -153,8 +134,8 @@ void can_init_all() {
   }
 }
 
+// single wire (low speed) GMLAN only used for button presses to change mode in the future
 void can_set_gmlan(int bus) {
-  #ifdef PANDA
   if (bus == -1 || bus != can_num_lookup[3]) {
     // GMLAN OFF
     switch (can_num_lookup[3]) {
@@ -194,7 +175,6 @@ void can_set_gmlan(int bus) {
     can_num_lookup[3] = 2;
     can_init(2);
   }
-  #endif
 }
 
 // CAN error
@@ -318,5 +298,3 @@ void CAN2_SCE_IRQHandler() { can_sce(CAN2); }
 
 void CAN3_RX0_IRQHandler() { can_rx(2); }
 void CAN3_SCE_IRQHandler() { can_sce(CAN3); }
-
-
