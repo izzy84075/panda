@@ -227,12 +227,13 @@ int main() {
     if (cnt % 33554432 == 0) {
       //puts("cnt: "); puth(cnt);
       puts(" rx0: "); puth(can0_rx_cnt);
-      puts(" rx2: "); puth(can2_rx_cnt);
       puts(" tx0: "); puth(can0_tx_cnt);
+      puts(" rx2: "); puth(can2_rx_cnt);
       puts(" tx2: "); puth(can2_tx_cnt);
 
       puts(" err: "); puth(can_err_cnt);
-      puts(" alltxmailboxfull: "); puth(can_all_mailbox_full_cnt);
+      puts(" mboxfull0: "); puth(can0_mailbox_full_cnt);
+      puts(" mboxfull2: "); puth(can1_mailbox_full_cnt);
       puts("\n");
 
       CAN_TypeDef *CANZERO = CANIF_FROM_CAN_NUM(0);

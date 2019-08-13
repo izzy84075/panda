@@ -132,8 +132,8 @@ extern uint32_t can_speed[];
 
 void can_init(uint8_t can_number);
 void can_init_all();
-void can_send(CAN_FIFOMailBox_TypeDef *to_push, uint8_t bus_number);
-int can_pop(can_ring *q, CAN_FIFOMailBox_TypeDef *elem);
+//void can_send(CAN_FIFOMailBox_TypeDef *to_push, uint8_t bus_number);
+//int can_pop(can_ring *q, CAN_FIFOMailBox_TypeDef *elem);
 
 #endif
 
