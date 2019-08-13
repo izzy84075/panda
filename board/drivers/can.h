@@ -1,3 +1,31 @@
+/*
+powertrain: 0x24B: Debug messages
+powertrain: 0xF1: body control module
+powertrain: 0xC9: Engine contorl module
+powertrain: 0x1E9: brake control module
+powertrain: 0x1C4: Engine Control Module
+powertrain: 0x1C5: Engine control module
+powertrain: 0x1F5: Telematic control module
+powertrain: 0x1E1: Body Control Module
+powertrain: 0x214: brake control module
+powertrain: 0x230: electronic parking brake
+powertrain: 0x34A: brake control module
+powertrain: 0x12A: body control module
+powertrain: 0x135: body control module
+powertrain: 0x184: power steering control module
+powertrain: 0x1F1: body control module
+powertrain: 0x140: body control module
+
+
+chassis: 0xC1: electronic brake control module
+chassis: 0xC5: electronic brake control module
+chassis: 0x130: multi axis accelerometer
+chassis: 0x140: multi axis accelerometer
+chassis: 0x170: electronic brake control module
+chassis: 0x1E5: steering angle sensor
+chassis: 0xC0: Seems to be needed for auto highbeams
+*/
+
 // IRQs: CAN1_TX, CAN1_RX0, CAN1_SCE, CAN2_TX, CAN2_RX0, CAN2_SCE, CAN3_TX, CAN3_RX0, CAN3_SCE
 
 #define CAN_MAX 3
