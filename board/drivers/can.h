@@ -139,7 +139,7 @@ void can_init(uint8_t can_number) {
 
   // no mask
   CAN->FS1R|=CAN_FS1R_FSC0;
-
+/*
   if (can_number == 0) {
     CAN->sFilterRegister[0].FR1 = 0x24B<<21;
     CAN->sFilterRegister[0].FR2 = 0xF1<<21;
@@ -164,13 +164,13 @@ void can_init(uint8_t can_number) {
     CAN->FA1R |= (1 << 14);
     CAN->FFA1R = 0x00000000;
   }
-  else {
+  else {*/
     CAN->sFilterRegister[0].FR1 = 0;
     CAN->sFilterRegister[0].FR2 = 0;
     CAN->sFilterRegister[14].FR1 = 0;
     CAN->sFilterRegister[14].FR2 = 0;
     CAN->FA1R |= 1 | (1 << 14);
-  }
+  //}
 
   CAN->FMR &= ~(CAN_FMR_FINIT);
 
@@ -378,12 +378,12 @@ int fwd_filter(int bus_num, CAN_FIFOMailBox_TypeDef *to_fwd) {
 
   if (bus_num == 2) {
     // Drop all steering + brake messages
-    if ((addr == 384) || (addr == 715)  || (addr == 789) || (addr == 880)) {
+    //if ((addr == 384) || (addr == 715)  || (addr == 789) || (addr == 880)) {
 
     // Drop all steering messages
     //if ((addr == 384)) {
-        return -1;
-    }
+    //    return -1;
+    //}
 
     return 0;
   }
