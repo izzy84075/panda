@@ -24,7 +24,12 @@ chassis: 0x140: multi axis accelerometer
 chassis: 0x170: electronic brake control module
 chassis: 0x1E5: steering angle sensor
 chassis: 0xC0: Seems to be needed for auto highbeams
+
+powertrain proxy 0x2CA gas regen proxy
 */
+
+#define GET_ADDR(msg) ((((msg)->RIR & 4) != 0) ? ((msg)->RIR >> 3) : ((msg)->RIR >> 21))
+#define GET_BYTE(msg, b) (((int)(b) > 3) ? (((msg)->RDHR >> (8U * ((unsigned int)(b) % 4U))) & 0XFFU) : (((msg)->RDLR >> (8U * (unsigned int)(b))) & 0xFFU))
 
 // IRQs: CAN1_TX, CAN1_RX0, CAN1_SCE, CAN2_TX, CAN2_RX0, CAN2_SCE, CAN3_TX, CAN3_RX0, CAN3_SCE
 
@@ -40,6 +45,17 @@ can_buffer(tx3_q, 0x100)
 can_buffer(txgmlan_q, 0x100)
 can_ring *can_queues[] = {&can_tx1_q, &can_tx2_q, &can_tx3_q, &can_txgmlan_q};
 
+const int GM_MAX_STEER = 300;
+const int GM_MAX_RT_DELTA = 128;          // max delta torque allowed for real time checks
+const uint32_t GM_RT_INTERVAL = 250000;    // 250ms between real time checks
+const int GM_MAX_RATE_UP = 7;
+const int GM_MAX_RATE_DOWN = 17;
+const int GM_DRIVER_TORQUE_ALLOWANCE = 50;
+const int GM_DRIVER_TORQUE_FACTOR = 4;
+const int GM_MAX_GAS = 3072;
+const int GM_MAX_REGEN = 1404;
+const int GM_MAX_BRAKE = 350;
+
 int can_err_cnt = 0;
 int can0_mailbox_full_cnt = 0;
 int can1_mailbox_full_cnt = 0;
@@ -51,6 +67,17 @@ int can2_tx_cnt = 0;
 void can_send(CAN_FIFOMailBox_TypeDef *to_push, uint8_t bus_number);
 bool can_pop(can_ring *q, CAN_FIFOMailBox_TypeDef *elem);
 
+// overrides
+CAN_FIFOMailBox_TypeDef steering_override;
+bool is_steering_override_valid = false;
+int steering_rolling_counter;
+
+CAN_FIFOMailBox_TypeDef gas_regen_override;
+bool is_gas_regen_override_valid = false;
+int gas_regen_counter;
+
+CAN_FIFOMailBox_TypeDef acc_status_override;
+bool is_acc_status_valid;
 
 // assign CAN numbering
 // bus num: Can bus number on ODB connector. Sent to/from USB
@@ -157,10 +184,14 @@ void can_init(uint8_t can_number) {
     CAN->sFilterRegister[6].FR2 = 0x184<<21;
     CAN->sFilterRegister[7].FR1 = 0x1F1<<21;
     CAN->sFilterRegister[7].FR2 = 0x140<<21;
+    CAN->sFilterRegister[8].FR1 = 0x2CA<<21;
+    CAN->sFilterRegister[8].FR2 = 0x17F<<21;
+    CAN->sFilterRegister[9].FR1 = 0x36F<<21;
+    CAN->sFilterRegister[9].FR1 = 0x36F<<21;
     CAN->sFilterRegister[14].FR1 = 0;
     CAN->sFilterRegister[14].FR2 = 0;
-    CAN->FM1R |= CAN_FM1R_FBM0 | CAN_FM1R_FBM1 | CAN_FM1R_FBM2 | CAN_FM1R_FBM3 | CAN_FM1R_FBM4 | CAN_FM1R_FBM5 | CAN_FM1R_FBM6 | CAN_FM1R_FBM7;
-    CAN->FA1R |= CAN_FA1R_FACT0 | CAN_FA1R_FACT1 | CAN_FA1R_FACT2 | CAN_FA1R_FACT3 | CAN_FA1R_FACT4 | CAN_FA1R_FACT5 | CAN_FA1R_FACT6 | CAN_FA1R_FACT7;
+    CAN->FM1R |= CAN_FM1R_FBM0 | CAN_FM1R_FBM1 | CAN_FM1R_FBM2 | CAN_FM1R_FBM3 | CAN_FM1R_FBM4 | CAN_FM1R_FBM5 | CAN_FM1R_FBM6 | CAN_FM1R_FBM7 | CAN_FM1R_FBM8 | CAN_FM1R_FBM9; 
+    CAN->FA1R |= CAN_FA1R_FACT0 | CAN_FA1R_FACT1 | CAN_FA1R_FACT2 | CAN_FA1R_FACT3 | CAN_FA1R_FACT4 | CAN_FA1R_FACT5 | CAN_FA1R_FACT6 | CAN_FA1R_FACT7 | CAN_FA1R_FACT8 | CAN_FA1R_FACT9;
     CAN->FA1R |= (1 << 14);
     CAN->FFA1R = 0x00000000;
   }
@@ -369,20 +400,119 @@ void can_sce(CAN_TypeDef *CAN) {
 
 // ***************************** CAN *****************************
 
+void handle_update_steering_override(CAN_FIFOMailBox_TypeDef *override_msg) {
+    puts("handle steering\n");
+    steering_override.RIR = (384 << 21) | (override_msg->RIR & 0x1FFFFFU);
+    steering_override.RDTR = override_msg->RDTR;
+    steering_override.RDLR = override_msg->RDLR;
+    steering_override.RDHR = override_msg->RDHR;
+
+    is_steering_override_valid = true;
+}
+
+void handle_update_gasregencmd_override(CAN_FIFOMailBox_TypeDef *override_msg) {
+    gas_regen_override.RIR = (715 << 21) | (override_msg->RIR & 0x1FFFFFU);
+    gas_regen_override.RDTR = override_msg->RDTR;
+    gas_regen_override.RDLR = override_msg->RDLR;
+    gas_regen_override.RDHR = override_msg->RDHR;
+
+    is_gas_regen_override_valid = true;
+}
+
+void handle_update_acc_status_override(CAN_FIFOMailBox_TypeDef *override_msg) {
+  acc_status_override.RIR = (880 << 21) | (override_msg->RIR & 0x1FFFFFU);
+  acc_status_override.RDTR = override_msg->RDTR;
+  acc_status_override.RDLR = override_msg->RDLR;
+  acc_status_override.RDHR = override_msg->RDHR;
+
+  is_acc_status_valid = true;
+}
+
+bool handle_update_gasregencmd_override_rolling_counter(int rolling_counter) {
+  gas_regen_override.RDLR = gas_regen_override.RDLR | ((rolling_counter << 6) & 0xFFFFFF3FU);
+  int checksum3 = (0x100U - ((gas_regen_override.RDLR & 0xFF000000U) >> 24) - rolling_counter) & 0xFFU;
+  gas_regen_override.RDHR = gas_regen_override.RDHR | ((checksum3 << 24) & 0xFF000000U);
+
+  // GAS/REGEN: safety check - TODO disable system instead of just dropping out of saftey range messages
+  int gas_regen = ((GET_BYTE(&gas_regen_override, 2) & 0x7FU) << 5) + ((GET_BYTE(&gas_regen_override, 3) & 0xF8U) >> 3);
+  bool apply = GET_BYTE(&gas_regen_override, 0) & 1U;
+  if (apply || (gas_regen != GM_MAX_REGEN)) {
+    return false;
+  }
+  if (gas_regen > GM_MAX_GAS) {
+    return false;
+  }
+  return true;
+}
+
 int fwd_filter(int bus_num, CAN_FIFOMailBox_TypeDef *to_fwd) {
   uint32_t addr = to_fwd->RIR>>21;
-
+  
+  // CAR to ASCM
   if (bus_num == 0) {
+    // 383 == lkasteeringcmd proxy
+    if (addr == 383) {
+      handle_update_steering_override(to_fwd);
+      return -1;
+    }
+    // 714 == gasregencmd proxy
+    if (addr == 714) {
+      handle_update_gasregencmd_override(to_fwd);
+      return -1;
+    }
+    // 879 == ASCMActiveCruiseControlStatus proxy
+    if (addr == 879) {
+      handle_update_acc_status_override(to_fwd);
+    }
     return 2;
   }
 
+  // ASCM to CAR
   if (bus_num == 2) {
-    // Drop all steering + brake messages
-    if ((addr == 384) || (addr == 715)  || (addr == 789) || (addr == 880)) {
-
-    // Drop all steering messages
-    //if ((addr == 384)) {
+    // 384 == lkasteeringcmd
+    if (addr == 384) {
+      if (is_steering_override_valid) {
+        to_fwd->RIR = steering_override.RIR;
+        to_fwd->RDTR = steering_override.RDTR;
+        to_fwd->RDLR = steering_override.RDLR;
+        to_fwd->RDHR = steering_override.RDHR; 
+      }
+      else {
         return -1;
+      }
+      is_steering_override_valid = false;
+      return 0;
+    }
+    // 715 == gasregencmd
+    if (addr == 715) {
+      if (is_gas_regen_override_valid) {
+	//int curr_rolling_counter = (to_fwd->RDLR & 0xC0U) >> 6;
+	//if (handle_update_gasregencmd_override_rolling_counter(curr_rolling_counter)) {
+          to_fwd->RIR = gas_regen_override.RIR;
+          to_fwd->RDTR = gas_regen_override.RDTR;
+          to_fwd->RDLR = gas_regen_override.RDLR;
+          to_fwd->RDHR = gas_regen_override.RDHR;
+	//}
+      }
+      else {
+        return -1;
+      }
+      is_gas_regen_override_valid = false;
+      return 0;
+    }
+    // 880 == ASCMActiveCruiseControlStatus
+    if (addr == 880) {
+      if (is_acc_status_valid) {
+        to_fwd->RIR = acc_status_override.RIR;
+        to_fwd->RDTR = acc_status_override.RDTR;
+        to_fwd->RDLR = acc_status_override.RDLR;
+        to_fwd->RDHR = acc_status_override.RDHR;
+      }
+      else {
+        return -1;
+      }
+      is_acc_status_valid = false;
+      return 0;
     }
 
     return 0;
